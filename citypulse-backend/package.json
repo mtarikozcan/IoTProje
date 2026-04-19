@@ -1,0 +1,23 @@
+{
+  "name": "citypulse-backend",
+  "version": "1.0.0",
+  "description": "CityPulse backend, websocket server, simulator and lambda processor",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "simulator": "node simulator/citySimulator.js",
+    "lambda": "node -e \"require('./lambda/processor').handler({ Records: [] }).then(console.log)\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.825.0",
+    "@aws-sdk/client-kinesis": "^3.825.0",
+    "@aws-sdk/lib-dynamodb": "^3.825.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.0"
+  }
+}
+
