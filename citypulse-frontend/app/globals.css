@@ -45,7 +45,7 @@
   }
 
   .badge {
-    @apply inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium capitalize;
+    @apply inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium;
   }
 
   .badge-normal {

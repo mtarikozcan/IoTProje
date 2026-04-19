@@ -8,6 +8,7 @@ import { SensorCard } from '@/components/dashboard/SensorCard'
 import { useCityPulseContext } from '@/components/providers/CityPulseProvider'
 import { StatCard } from '@/components/ui/StatCard'
 import { api } from '@/lib/api'
+import { formatMetric, getSystemStatusLabel } from '@/lib/utils'
 import type { Alarm, DashboardSummary, SensorData } from '@/types'
 
 export default function DashboardPage() {
@@ -54,33 +55,27 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Aktif Sensor"
-          value={summary?.activeSensors ?? sensors.length}
-          helper="Beklenen: 10 sensor"
-          tone="energy"
+          label="Aktif Sensör"
+          value={formatMetric(summary?.activeSensors ?? sensors.length)}
+          helper="Canlı veri gönderen sensör sayısı"
+          tone="default"
         />
         <StatCard
-          label="Toplam Veri"
-          value={summary?.readingsLastHour ?? 0}
-          helper="Son 1 saat"
+          label="Son 1 Saat Veri"
+          value={formatMetric(summary?.readingsLastHour ?? 0)}
+          helper="Toplanan toplam kayıt"
           tone="traffic"
         />
         <StatCard
           label="Aktif Alarm"
-          value={summary?.activeAlarms ?? alarms.filter((alarm) => !alarm.resolved).length}
-          helper="Cozulmemis alarm"
+          value={formatMetric(summary?.activeAlarms ?? alarms.filter((alarm) => !alarm.resolved).length)}
+          helper="Çözülmemiş alarm sayısı"
           tone={alarms.some((alarm) => !alarm.resolved) ? 'danger' : 'success'}
         />
         <StatCard
           label="Sistem Durumu"
-          value={
-            summary?.systemStatus === 'critical'
-              ? 'Kritik'
-              : summary?.systemStatus === 'warning'
-                ? 'Uyari'
-                : 'Saglikli'
-          }
-          helper={connected ? 'WebSocket canlı' : 'WebSocket bağlantısı bekleniyor'}
+          value={getSystemStatusLabel(summary?.systemStatus)}
+          helper={connected ? 'WebSocket bağlantısı aktif' : 'WebSocket bağlantısı bekleniyor'}
           tone={
             summary?.systemStatus === 'critical'
               ? 'danger'

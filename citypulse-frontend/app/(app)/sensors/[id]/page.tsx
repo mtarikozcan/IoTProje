@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import {
+  CartesianGrid,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -12,9 +13,10 @@ import {
 } from 'recharts'
 
 import { useCityPulseContext } from '@/components/providers/CityPulseProvider'
+import { Badge } from '@/components/ui/Badge'
 import { StatCard } from '@/components/ui/StatCard'
 import { api } from '@/lib/api'
-import { formatClock, formatDateTime, formatMetric } from '@/lib/utils'
+import { formatClock, formatDateTime, formatMetric, formatMetricWithUnit, getSensorTypeLabel } from '@/lib/utils'
 import type { SensorData } from '@/types'
 
 interface SensorStats {
@@ -80,26 +82,30 @@ export default function SensorDetailPage() {
     <div className="space-y-6">
       <div className="panel p-5">
         <p className="text-xs uppercase tracking-[0.2em] text-tx-label">{params.id}</p>
-        <h2 className="mt-2 text-2xl font-semibold text-tx-primary">
-          {currentSensor?.location || 'Sensor detayi'}
-        </h2>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <h2 className="text-2xl font-semibold text-tx-primary">
+            {currentSensor?.location || 'Sensör detayı'}
+          </h2>
+          {currentSensor && <Badge variant={currentSensor.status} />}
+        </div>
         <p className="mt-2 text-sm text-tx-secondary">
-          Tip: {currentSensor?.sensorType || '-'} | Son deger: {currentSensor ? formatMetric(currentSensor.value) : '-'}{' '}
+          Tip: {currentSensor ? getSensorTypeLabel(currentSensor.sensorType) : '-'} | Son değer:{' '}
+          {currentSensor ? formatMetric(currentSensor.value) : '-'}{' '}
           {currentSensor?.unit || ''}
         </p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Min" value={stats ? formatMetric(stats.min) : '-'} helper="Kaydedilen en dusuk deger" />
-        <StatCard label="Max" value={stats ? formatMetric(stats.max) : '-'} helper="Kaydedilen en yuksek deger" />
-        <StatCard label="Ortalama" value={stats ? formatMetric(stats.avg) : '-'} helper="Tum veri noktalarinin ortalamasi" />
-        <StatCard label="Anomali" value={anomalyCount} helper="History icindeki warning/critical" tone={anomalyCount > 0 ? 'danger' : 'success'} />
+        <StatCard label="Minimum" value={stats ? formatMetric(stats.min) : '-'} helper="Kaydedilen en düşük değer" />
+        <StatCard label="Maksimum" value={stats ? formatMetric(stats.max) : '-'} helper="Kaydedilen en yüksek değer" />
+        <StatCard label="Ortalama" value={stats ? formatMetric(stats.avg) : '-'} helper="Tüm veri noktalarının ortalaması" />
+        <StatCard label="Anomali" value={formatMetric(anomalyCount)} helper="Geçmişteki uyarı ve kritik kayıtlar" tone={anomalyCount > 0 ? 'danger' : 'success'} />
       </section>
 
-      <section className="panel h-[360px] p-4">
+      <section className="panel h-[360px] p-4 lg:h-[380px]">
         <div className="mb-4">
           <p className="text-xs uppercase tracking-[0.2em] text-tx-label">24h Grafik</p>
-          <h3 className="mt-1 text-lg font-semibold text-tx-primary">Son 100 olcum</h3>
+          <h3 className="mt-1 text-lg font-semibold text-tx-primary">Son 100 ölçüm</h3>
         </div>
         {error ? (
           <div className="flex h-full items-center justify-center text-sm text-red-300">{error}</div>
@@ -114,27 +120,36 @@ export default function SensorDetailPage() {
         ) : mounted ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartSeries}>
+              <CartesianGrid vertical={false} stroke="#202020" />
               <XAxis dataKey="time" stroke="#666666" tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis stroke={currentSensor?.sensorType === 'energy' ? '#f59e0b' : '#3b82f6'} tickLine={false} axisLine={false} />
+              <YAxis
+                stroke={currentSensor?.sensorType === 'energy' ? '#f59e0b' : '#3b82f6'}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => formatMetric(Number(value))}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#141414',
                   border: '1px solid #2a2a2a',
                   borderRadius: 8,
+                  padding: '10px 12px',
                 }}
+                formatter={(value) => formatMetricWithUnit(Number(value), currentSensor?.unit || '')}
               />
               <Line
                 type="monotone"
                 dataKey="value"
                 stroke={currentSensor?.sensorType === 'energy' ? '#f59e0b' : '#3b82f6'}
-                strokeWidth={2.25}
+                strokeWidth={2.5}
                 dot={false}
+                activeDot={{ r: 3, fill: currentSensor?.sensorType === 'energy' ? '#f59e0b' : '#3b82f6', strokeWidth: 0 }}
               />
             </LineChart>
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-tx-muted">
-            Grafik hazirlaniyor...
+            Grafik hazırlanıyor...
           </div>
         )}
       </section>
@@ -148,23 +163,28 @@ export default function SensorDetailPage() {
             <div className="p-4 text-sm text-tx-secondary">Gösterilecek veri bulunmuyor.</div>
           ) : (
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-surface text-tx-label">
+              <thead className="border-b border-border bg-surface text-tx-label">
                 <tr>
                   <th className="px-4 py-3 font-medium">Zaman</th>
-                  <th className="px-4 py-3 font-medium">Deger</th>
+                  <th className="px-4 py-3 font-medium">Değer</th>
                   <th className="px-4 py-3 font-medium">Ortalama 5m</th>
                   <th className="px-4 py-3 font-medium">Durum</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((reading) => (
-                  <tr key={`${reading.sensorId}-${reading.timestamp}`} className="border-t border-border/60 text-tx-secondary">
+                  <tr
+                    key={`${reading.sensorId}-${reading.timestamp}`}
+                    className="border-t border-border/60 text-tx-secondary transition-colors hover:bg-surface"
+                  >
                     <td className="px-4 py-3">{formatDateTime(reading.timestamp)}</td>
-                    <td className="px-4 py-3">
-                      {formatMetric(reading.value)} {reading.unit}
+                    <td className="px-4 py-3 font-medium text-tx-primary">
+                      {formatMetricWithUnit(reading.value, reading.unit)}
                     </td>
                     <td className="px-4 py-3">{formatMetric(reading.average5m)}</td>
-                    <td className="px-4 py-3 capitalize">{reading.status}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={reading.status} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

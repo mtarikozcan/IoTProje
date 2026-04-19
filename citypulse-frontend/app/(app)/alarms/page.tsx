@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useCityPulseContext } from '@/components/providers/CityPulseProvider'
 import { Badge } from '@/components/ui/Badge'
 import { api } from '@/lib/api'
-import { formatDateTime, formatMetric } from '@/lib/utils'
+import { formatCompactDateTime, formatMetric, formatMetricWithUnit } from '@/lib/utils'
 import type { Alarm } from '@/types'
 
 export default function AlarmsPage() {
@@ -53,8 +53,8 @@ export default function AlarmsPage() {
   return (
     <div className="space-y-6">
       <div className="panel p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-tx-label">Alarm yonetimi</p>
-        <h2 className="mt-1 text-xl font-semibold text-tx-primary">Aktif ve gecmis alarmlar</h2>
+        <p className="text-xs uppercase tracking-[0.2em] text-tx-label">Alarm yönetimi</p>
+        <h2 className="mt-1 text-xl font-semibold text-tx-primary">Aktif ve geçmiş alarmlar</h2>
       </div>
 
       <div className="space-y-4">
@@ -63,38 +63,49 @@ export default function AlarmsPage() {
         ) : loading ? (
           <div className="panel p-6 text-sm text-tx-secondary">Alarmlar yükleniyor...</div>
         ) : alarms.length === 0 ? (
-          <div className="panel p-6 text-sm text-tx-secondary">Kayitli alarm bulunmuyor.</div>
+          <div className="panel p-6 text-sm text-tx-secondary">Kayıtlı alarm bulunmuyor.</div>
         ) : (
           alarms.map((alarm) => (
-            <div key={alarm.alarmId} className="panel p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-3">
+            <div key={alarm.alarmId} className="panel p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1 space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={alarm.resolved ? 'resolved' : alarm.severity}>
-                      {alarm.resolved ? 'resolved' : alarm.severity}
-                    </Badge>
+                    <Badge variant={alarm.resolved ? 'resolved' : alarm.severity} />
                     <span className="font-medium text-tx-primary">{alarm.sensorId}</span>
-                    <span className="text-sm text-tx-muted">{formatDateTime(alarm.timestamp)}</span>
+                    <span className="text-sm text-tx-muted">{formatCompactDateTime(alarm.timestamp)}</span>
                   </div>
 
-                  <p className="text-sm text-tx-secondary">{alarm.message}</p>
+                  <p className="text-sm leading-6 text-tx-secondary break-words">{alarm.message}</p>
 
-                  <div className="flex flex-wrap gap-4 text-sm text-tx-secondary">
-                    <span>Deger: {formatMetric(alarm.value)}</span>
-                    <span>5m Ortalama: {formatMetric(alarm.average5m)}</span>
-                    <span>Sapma: {formatMetric(alarm.deviation)}x</span>
+                  <div className="grid gap-2 text-sm text-tx-secondary sm:grid-cols-3">
+                    <div className="rounded-lg border border-border/80 bg-surface px-3 py-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-tx-label">Değer</p>
+                      <p className="mt-1 font-medium text-tx-primary">{formatMetricWithUnit(alarm.value, alarm.sensorType === 'energy' ? 'kWh' : 'araç/dk')}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-surface px-3 py-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-tx-label">5 dk ort.</p>
+                      <p className="mt-1 font-medium text-tx-primary">{formatMetricWithUnit(alarm.average5m, alarm.sensorType === 'energy' ? 'kWh' : 'araç/dk')}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/80 bg-surface px-3 py-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-tx-label">Sapma oranı</p>
+                      <p className="mt-1 font-medium text-tx-primary">{formatMetric(alarm.deviation)}x</p>
+                    </div>
                   </div>
                 </div>
 
                 {!alarm.resolved && (
-                  <button
-                    type="button"
-                    onClick={() => void handleResolve(alarm.alarmId)}
-                    disabled={loadingIds.includes(alarm.alarmId)}
-                    className="rounded-lg border border-red-800 bg-red-950/30 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-950/50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Cozuldu Isaretle
-                  </button>
+                  <div className="flex w-full justify-start lg:w-auto lg:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => void handleResolve(alarm.alarmId)}
+                      disabled={loadingIds.includes(alarm.alarmId)}
+                      className="rounded-lg border border-red-800 bg-red-950/30 px-4 py-2 text-sm font-medium text-red-200 transition-colors hover:bg-red-950/50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loadingIds.includes(alarm.alarmId)
+                        ? 'İşaretleniyor...'
+                        : 'Çözüldü işaretle'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

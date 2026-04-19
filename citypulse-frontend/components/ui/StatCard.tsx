@@ -17,11 +17,12 @@ const toneClasses = {
 
 export function StatCard({ label, value, helper, tone = 'default' }: StatCardProps) {
   return (
-    <div className="panel p-4">
+    <div className="panel flex h-full min-h-[136px] flex-col justify-between p-4">
       <p className="text-xs uppercase tracking-[0.2em] text-tx-label">{label}</p>
-      <p className={cn('mt-3 text-3xl font-semibold', toneClasses[tone])}>{value}</p>
-      <p className="mt-2 text-sm text-tx-secondary">{helper || 'Canli veri akisi'}</p>
+      <div className="mt-3">
+        <p className={cn('text-3xl font-semibold tracking-tight', toneClasses[tone])}>{value}</p>
+        <p className="mt-2 text-sm leading-5 text-tx-secondary">{helper || 'Canlı veri akışı'}</p>
+      </div>
     </div>
   )
 }
-

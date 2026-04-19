@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 const links = [
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/sensors', label: 'Sensorler' },
+  { href: '/sensors', label: 'Sensörler' },
   { href: '/alarms', label: 'Alarmlar' },
 ]
 
@@ -18,7 +18,7 @@ export function Sidebar() {
     <aside className="hidden w-64 border-r border-border bg-surface px-4 py-6 lg:block">
       <div className="mb-8 px-3">
         <p className="text-xs uppercase tracking-[0.32em] text-tx-label">CityPulse</p>
-        <h1 className="mt-2 text-2xl font-semibold text-tx-primary">Sehir Operasyon Merkezi</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-tx-primary">Şehir Operasyon Merkezi</h1>
       </div>
 
       <nav className="space-y-2">
@@ -44,4 +44,3 @@ export function Sidebar() {
     </aside>
   )
 }
-
