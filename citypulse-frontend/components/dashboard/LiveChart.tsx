@@ -34,42 +34,48 @@ export function LiveChart({ data }: { data: ChartPoint[] }) {
       </div>
 
       {mounted ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data}>
-            <XAxis dataKey="time" stroke="#666666" tickLine={false} axisLine={false} minTickGap={24} />
-            <YAxis
-              yAxisId="energy"
-              stroke="#f59e0b"
-              tickLine={false}
-              axisLine={false}
-              width={56}
-              tickFormatter={(value) => `${value}`}
-            />
-            <YAxis
-              yAxisId="traffic"
-              orientation="right"
-              stroke="#3b82f6"
-              tickLine={false}
-              axisLine={false}
-              width={56}
-              tickFormatter={(value) => `${value}`}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#141414',
-                border: '1px solid #2a2a2a',
-                borderRadius: 8,
-              }}
-              labelStyle={{ color: '#a0a0a0' }}
-              formatter={(value, name) => [
-                `${formatMetric(Number(value || 0))} ${name === 'energy' ? 'kWh' : 'arac/dk'}`,
-                name === 'energy' ? 'Enerji' : 'Trafik',
-              ]}
-            />
-            <Line yAxisId="energy" type="monotone" dataKey="energy" stroke="#f59e0b" strokeWidth={2.25} dot={false} />
-            <Line yAxisId="traffic" type="monotone" dataKey="traffic" stroke="#3b82f6" strokeWidth={2.25} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
+        data.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-tx-muted">
+            Henüz canlı veri yok.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data}>
+              <XAxis dataKey="time" stroke="#666666" tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis
+                yAxisId="energy"
+                stroke="#f59e0b"
+                tickLine={false}
+                axisLine={false}
+                width={56}
+                tickFormatter={(value) => `${value}`}
+              />
+              <YAxis
+                yAxisId="traffic"
+                orientation="right"
+                stroke="#3b82f6"
+                tickLine={false}
+                axisLine={false}
+                width={56}
+                tickFormatter={(value) => `${value}`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#141414',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: 8,
+                }}
+                labelStyle={{ color: '#a0a0a0' }}
+                formatter={(value, name) => [
+                  `${formatMetric(Number(value || 0))} ${name === 'energy' ? 'kWh' : 'araç/dk'}`,
+                  name === 'energy' ? 'Enerji' : 'Trafik',
+                ]}
+              />
+              <Line yAxisId="energy" type="monotone" dataKey="energy" stroke="#f59e0b" strokeWidth={2.25} dot={false} />
+              <Line yAxisId="traffic" type="monotone" dataKey="traffic" stroke="#3b82f6" strokeWidth={2.25} dot={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )
       ) : (
         <div className="flex h-full items-center justify-center text-sm text-tx-muted">
           Grafik hazirlaniyor...

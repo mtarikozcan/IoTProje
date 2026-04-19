@@ -3,10 +3,18 @@ require('dotenv').config();
 const { saveSensorReading, getLast5MinAverage } = require('../src/services/sensorService');
 const { checkAnomaly, saveAlarm } = require('../src/services/anomalyService');
 
+function decodeKinesisRecord(record) {
+  if (!record?.kinesis?.data) {
+    throw new Error('Missing Kinesis record payload');
+  }
+
+  const decoded = Buffer.from(record.kinesis.data, 'base64').toString('utf8');
+  return JSON.parse(decoded);
+}
+
 async function processRecord(record) {
   try {
-    const decoded = Buffer.from(record.kinesis.data, 'base64').toString('utf8');
-    const sensorData = JSON.parse(decoded);
+    const sensorData = decodeKinesisRecord(record);
 
     await saveSensorReading(sensorData);
     const average5m = (await getLast5MinAverage(sensorData.sensorId)) || Number(sensorData.value);

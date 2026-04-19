@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get('/alarms', async (req, res, next) => {
   try {
-    const alarms = await getAlarms(req.query.resolved);
+    const alarms = await getAlarms(req.query.resolved, req.query.type);
     res.json(alarms);
   } catch (error) {
     next(error);
@@ -29,4 +29,3 @@ router.put('/alarms/:id/resolve', async (req, res, next) => {
 });
 
 module.exports = router;
-

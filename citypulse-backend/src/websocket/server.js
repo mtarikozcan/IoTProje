@@ -20,7 +20,11 @@ function createWebSocketServer(port = Number(process.env.WS_PORT || 8080)) {
     clients.add(ws);
 
     ws.on('message', async (message) => {
-      await handleMessage(ws, message, broadcastToClients);
+      try {
+        await handleMessage(ws, message, broadcastToClients);
+      } catch (error) {
+        console.warn('WebSocket warning: failed to handle incoming message.', error.message || error);
+      }
     });
 
     ws.on('close', () => {
@@ -38,4 +42,3 @@ function createWebSocketServer(port = Number(process.env.WS_PORT || 8080)) {
 module.exports = {
   createWebSocketServer,
 };
-

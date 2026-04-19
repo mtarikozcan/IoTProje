@@ -45,6 +45,11 @@ function getAlarms() {
   return alarms.map((alarm) => ({ ...alarm }));
 }
 
+function getAlarmById(alarmId) {
+  const alarm = alarms.find((entry) => entry.alarmId === alarmId);
+  return alarm ? { ...alarm } : null;
+}
+
 function updateAlarm(alarmId, updater) {
   const index = alarms.findIndex((alarm) => alarm.alarmId === alarmId);
   if (index === -1) {
@@ -63,6 +68,6 @@ module.exports = {
   getLatestReadings,
   addAlarm,
   getAlarms,
+  getAlarmById,
   updateAlarm,
 };
-

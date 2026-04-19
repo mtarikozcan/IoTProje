@@ -2,6 +2,39 @@ const { getLast5MinAverage, saveSensorReading } = require('../services/sensorSer
 const { putSensorRecord } = require('../services/kinesisService');
 const { checkAnomaly, saveAlarm } = require('../services/anomalyService');
 
+const VALID_SENSOR_TYPES = new Set(['energy', 'traffic']);
+
+function isFiniteNumber(value) {
+  return Number.isFinite(Number(value));
+}
+
+function validateSensorPayload(payload) {
+  if (!payload || payload.type !== 'sensor_data') {
+    return 'Unsupported message type';
+  }
+
+  const requiredStringFields = ['sensorId', 'sensorType', 'unit', 'location'];
+  for (const field of requiredStringFields) {
+    if (typeof payload[field] !== 'string' || payload[field].trim() === '') {
+      return `Missing or invalid field: ${field}`;
+    }
+  }
+
+  if (!VALID_SENSOR_TYPES.has(payload.sensorType)) {
+    return 'Invalid sensorType';
+  }
+
+  if (!isFiniteNumber(payload.value) || !isFiniteNumber(payload.lat) || !isFiniteNumber(payload.lng)) {
+    return 'Invalid numeric payload';
+  }
+
+  if (payload.timestamp && Number.isNaN(Date.parse(payload.timestamp))) {
+    return 'Invalid timestamp';
+  }
+
+  return null;
+}
+
 async function handleMessage(ws, rawMessage, broadcastFn) {
   let payload;
 
@@ -17,7 +50,16 @@ async function handleMessage(ws, rawMessage, broadcastFn) {
     return;
   }
 
-  if (payload.type !== 'sensor_data') {
+  const validationError = validateSensorPayload(payload);
+  if (validationError) {
+    if (payload?.type === 'sensor_data') {
+      ws.send(
+        JSON.stringify({
+          type: 'error',
+          message: validationError,
+        })
+      );
+    }
     return;
   }
 
@@ -32,14 +74,16 @@ async function handleMessage(ws, rawMessage, broadcastFn) {
     value: Number(payload.value),
     unit: payload.unit,
     location: payload.location,
-    lat: Number(payload.lat),
-    lng: Number(payload.lng),
     status,
     average5m: Number(avg5m),
     timestamp: payload.timestamp || new Date().toISOString(),
   };
 
-  await saveSensorReading(sensorUpdate);
+  await saveSensorReading({
+    ...sensorUpdate,
+    lat: Number(payload.lat),
+    lng: Number(payload.lng),
+  });
   await putSensorRecord(sensorUpdate);
   broadcastFn(sensorUpdate);
 
@@ -57,4 +101,3 @@ async function handleMessage(ws, rawMessage, broadcastFn) {
 module.exports = {
   handleMessage,
 };
-

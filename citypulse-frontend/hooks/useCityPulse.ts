@@ -1,7 +1,7 @@
 'use client'
 
 import { format } from 'date-fns'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { Alarm, ChartPoint, SensorData } from '@/types'
 
@@ -36,14 +36,18 @@ export function useCityPulse() {
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  function appendChart(snapshot: Map<string, SensorData>, timestamp: string) {
+  const appendChart = useCallback((snapshot: Map<string, SensorData>, timestamp: string) => {
     setChartData((previous) => {
       const nextPoint = buildChartPoint(snapshot, timestamp)
+      if (previous.length > 0 && previous[previous.length - 1]?.timestamp === timestamp) {
+        return [...previous.slice(0, -1), nextPoint]
+      }
+
       return [...previous.slice(-59), nextPoint]
     })
-  }
+  }, [])
 
-  function hydrateSensors(readings: SensorData[]) {
+  const hydrateSensors = useCallback((readings: SensorData[]) => {
     let nextSnapshot = new Map<string, SensorData>()
 
     setSensorMap((previous) => {
@@ -57,21 +61,21 @@ export function useCityPulse() {
     if (readings.length > 0) {
       appendChart(nextSnapshot, readings[0]?.timestamp || new Date().toISOString())
     }
-  }
+  }, [appendChart])
 
-  function hydrateAlarms(initialAlarms: Alarm[]) {
+  const hydrateAlarms = useCallback((initialAlarms: Alarm[]) => {
     setAlarms(
       [...initialAlarms]
         .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
         .slice(0, 20)
     )
-  }
+  }, [])
 
-  function markAlarmResolved(alarmId: string) {
+  const markAlarmResolved = useCallback((alarmId: string) => {
     setAlarms((previous) =>
       previous.map((alarm) => (alarm.alarmId === alarmId ? { ...alarm, resolved: true } : alarm))
     )
-  }
+  }, [])
 
   useEffect(() => {
     let disposed = false
@@ -108,7 +112,14 @@ export function useCityPulse() {
 
             setSensorMap((previous) => {
               nextSnapshot = new Map(previous)
-              nextSnapshot.set(message.sensorId, message as SensorData)
+              const previousSensor = previous.get(message.sensorId)
+              nextSnapshot.set(message.sensorId, {
+                ...(previousSensor || {
+                  lat: 0,
+                  lng: 0,
+                }),
+                ...message,
+              } as SensorData)
               return nextSnapshot
             })
 
@@ -117,7 +128,10 @@ export function useCityPulse() {
           }
 
           if (message.type === 'alarm') {
-            setAlarms((previous) => [message as Alarm, ...previous].slice(0, 20))
+            setAlarms((previous) => {
+              const deduped = previous.filter((alarm) => alarm.alarmId !== message.alarmId)
+              return [message as Alarm, ...deduped].slice(0, 20)
+            })
           }
         } catch (error) {
           console.warn('WebSocket message parse warning:', error)
@@ -126,6 +140,7 @@ export function useCityPulse() {
 
       socket.onclose = () => {
         setConnected(false)
+        socketRef.current = null
         scheduleReconnect()
       }
 
@@ -146,7 +161,7 @@ export function useCityPulse() {
 
       socketRef.current?.close()
     }
-  }, [])
+  }, [appendChart])
 
   return {
     sensorMap,
@@ -161,4 +176,3 @@ export function useCityPulse() {
     markAlarmResolved,
   }
 }
-

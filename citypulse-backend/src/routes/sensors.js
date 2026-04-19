@@ -22,6 +22,11 @@ router.get('/sensors', async (_req, res, next) => {
 router.get('/sensors/:id/history', async (req, res, next) => {
   try {
     const limit = Number(req.query.limit || 100);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      res.status(400).json({ message: 'Query parameter "limit" must be a positive integer' });
+      return;
+    }
+
     const readings = await getSensorHistory(req.params.id, limit);
     res.json(readings);
   } catch (error) {
@@ -31,7 +36,7 @@ router.get('/sensors/:id/history', async (req, res, next) => {
 
 router.get('/sensors/:id/stats', async (req, res, next) => {
   try {
-    const stats = await getSensorStats(req.params.id);
+    const stats = await getSensorStats(req.params.id, req.query.period);
     res.json(stats);
   } catch (error) {
     next(error);
@@ -58,4 +63,3 @@ router.get('/dashboard/summary', async (_req, res, next) => {
 });
 
 module.exports = router;
-

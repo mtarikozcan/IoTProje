@@ -12,15 +12,22 @@ export default function AlarmsPage() {
   const { hydrateAlarms, markAlarmResolved } = useCityPulseContext()
   const [alarms, setAlarms] = useState<Alarm[]>([])
   const [loadingIds, setLoadingIds] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadAlarms() {
       try {
+        setLoading(true)
+        setError(null)
         const response = await api.get<Alarm[]>('/alarms')
         setAlarms(response.data)
         hydrateAlarms(response.data.filter((alarm) => !alarm.resolved))
       } catch (error) {
+        setError('Alarm listesi yüklenemedi.')
         console.warn('Alarm load warning:', error)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -31,9 +38,9 @@ export default function AlarmsPage() {
     setLoadingIds((previous) => [...previous, alarmId])
 
     try {
-      await api.put(`/alarms/${alarmId}/resolve`)
+      const response = await api.put<Alarm>(`/alarms/${alarmId}/resolve`)
       setAlarms((previous) =>
-        previous.map((alarm) => (alarm.alarmId === alarmId ? { ...alarm, resolved: true } : alarm))
+        previous.map((alarm) => (alarm.alarmId === alarmId ? response.data : alarm))
       )
       markAlarmResolved(alarmId)
     } catch (error) {
@@ -51,7 +58,11 @@ export default function AlarmsPage() {
       </div>
 
       <div className="space-y-4">
-        {alarms.length === 0 ? (
+        {error ? (
+          <div className="panel p-6 text-sm text-red-300">{error}</div>
+        ) : loading ? (
+          <div className="panel p-6 text-sm text-tx-secondary">Alarmlar yükleniyor...</div>
+        ) : alarms.length === 0 ? (
           <div className="panel p-6 text-sm text-tx-secondary">Kayitli alarm bulunmuyor.</div>
         ) : (
           alarms.map((alarm) => (

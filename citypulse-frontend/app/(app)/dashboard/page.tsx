@@ -20,10 +20,14 @@ export default function DashboardPage() {
     hydrateAlarms,
   } = useCityPulseContext()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadDashboard() {
       try {
+        setLoading(true)
+        setError(null)
         const [sensorResponse, alarmResponse, summaryResponse] = await Promise.all([
           api.get<SensorData[]>('/sensors'),
           api.get<Alarm[]>('/alarms?resolved=false'),
@@ -34,7 +38,10 @@ export default function DashboardPage() {
         hydrateAlarms(alarmResponse.data)
         setSummary(summaryResponse.data)
       } catch (error) {
+        setError('Dashboard verisi yüklenemedi.')
         console.warn('Dashboard load warning:', error)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -77,12 +84,19 @@ export default function DashboardPage() {
         <AlarmFeed alarms={alarms.filter((alarm) => !alarm.resolved)} />
       </section>
 
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {orderedSensors.map((sensor) => (
-          <SensorCard key={sensor.sensorId} sensor={sensor} />
-        ))}
-      </section>
+      {error ? (
+        <div className="panel p-4 text-sm text-red-300">{error}</div>
+      ) : loading && orderedSensors.length === 0 ? (
+        <div className="panel p-4 text-sm text-tx-secondary">Dashboard verisi yükleniyor...</div>
+      ) : orderedSensors.length === 0 ? (
+        <div className="panel p-4 text-sm text-tx-secondary">Henüz sensör verisi alınmadı.</div>
+      ) : (
+        <section className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          {orderedSensors.map((sensor) => (
+            <SensorCard key={sensor.sensorId} sensor={sensor} />
+          ))}
+        </section>
+      )}
     </div>
   )
 }
-

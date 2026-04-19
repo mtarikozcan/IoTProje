@@ -31,10 +31,14 @@ export default function SensorDetailPage() {
   const [history, setHistory] = useState<SensorData[]>([])
   const [stats, setStats] = useState<SensorStats | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadSensor() {
       try {
+        setLoading(true)
+        setError(null)
         const [historyResponse, statsResponse] = await Promise.all([
           api.get<SensorData[]>(`/sensors/${params.id}/history?limit=100`),
           api.get<SensorStats>(`/sensors/${params.id}/stats`),
@@ -43,7 +47,10 @@ export default function SensorDetailPage() {
         setHistory(historyResponse.data)
         setStats(statsResponse.data)
       } catch (error) {
+        setError('Sensör detayı yüklenemedi.')
         console.warn('Sensor detail load warning:', error)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -94,7 +101,17 @@ export default function SensorDetailPage() {
           <p className="text-xs uppercase tracking-[0.2em] text-tx-label">24h Grafik</p>
           <h3 className="mt-1 text-lg font-semibold text-tx-primary">Son 100 olcum</h3>
         </div>
-        {mounted ? (
+        {error ? (
+          <div className="flex h-full items-center justify-center text-sm text-red-300">{error}</div>
+        ) : loading ? (
+          <div className="flex h-full items-center justify-center text-sm text-tx-muted">
+            Sensör geçmişi yükleniyor...
+          </div>
+        ) : chartSeries.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-tx-muted">
+            Bu sensör için henüz geçmiş veri yok.
+          </div>
+        ) : mounted ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartSeries}>
               <XAxis dataKey="time" stroke="#666666" tickLine={false} axisLine={false} minTickGap={24} />
@@ -127,28 +144,32 @@ export default function SensorDetailPage() {
           <h3 className="text-lg font-semibold text-tx-primary">Veri Tablosu</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-surface text-tx-label">
-              <tr>
-                <th className="px-4 py-3 font-medium">Zaman</th>
-                <th className="px-4 py-3 font-medium">Deger</th>
-                <th className="px-4 py-3 font-medium">Ortalama 5m</th>
-                <th className="px-4 py-3 font-medium">Durum</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((reading) => (
-                <tr key={`${reading.sensorId}-${reading.timestamp}`} className="border-t border-border/60 text-tx-secondary">
-                  <td className="px-4 py-3">{formatDateTime(reading.timestamp)}</td>
-                  <td className="px-4 py-3">
-                    {formatMetric(reading.value)} {reading.unit}
-                  </td>
-                  <td className="px-4 py-3">{formatMetric(reading.average5m)}</td>
-                  <td className="px-4 py-3 capitalize">{reading.status}</td>
+          {history.length === 0 ? (
+            <div className="p-4 text-sm text-tx-secondary">Gösterilecek veri bulunmuyor.</div>
+          ) : (
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-surface text-tx-label">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Zaman</th>
+                  <th className="px-4 py-3 font-medium">Deger</th>
+                  <th className="px-4 py-3 font-medium">Ortalama 5m</th>
+                  <th className="px-4 py-3 font-medium">Durum</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((reading) => (
+                  <tr key={`${reading.sensorId}-${reading.timestamp}`} className="border-t border-border/60 text-tx-secondary">
+                    <td className="px-4 py-3">{formatDateTime(reading.timestamp)}</td>
+                    <td className="px-4 py-3">
+                      {formatMetric(reading.value)} {reading.unit}
+                    </td>
+                    <td className="px-4 py-3">{formatMetric(reading.average5m)}</td>
+                    <td className="px-4 py-3 capitalize">{reading.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
     </div>

@@ -13,14 +13,21 @@ export default function SensorsPage() {
   const { sensors, hydrateSensors } = useCityPulseContext()
   const [typeFilter, setTypeFilter] = useState<'all' | 'energy' | 'traffic'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'normal' | 'warning' | 'critical'>('all')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadSensors() {
       try {
+        setLoading(true)
+        setError(null)
         const response = await api.get<SensorData[]>('/sensors')
         hydrateSensors(response.data)
       } catch (error) {
+        setError('Sensör listesi yüklenemedi.')
         console.warn('Sensors load warning:', error)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -69,44 +76,51 @@ export default function SensorsPage() {
       </div>
 
       <div className="panel overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-border bg-surface">
-              <tr className="text-tx-label">
-                <th className="px-4 py-3 font-medium">Sensor</th>
-                <th className="px-4 py-3 font-medium">Konum</th>
-                <th className="px-4 py-3 font-medium">Tip</th>
-                <th className="px-4 py-3 font-medium">Son Deger</th>
-                <th className="px-4 py-3 font-medium">Durum</th>
-                <th className="px-4 py-3 font-medium">Son Guncelleme</th>
-                <th className="px-4 py-3 font-medium">Detay</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSensors.map((sensor) => (
-                <tr key={sensor.sensorId} className="border-b border-border/60 text-tx-secondary">
-                  <td className="px-4 py-3 font-medium text-tx-primary">{sensor.sensorId}</td>
-                  <td className="px-4 py-3">{sensor.location}</td>
-                  <td className="px-4 py-3 capitalize">{sensor.sensorType}</td>
-                  <td className="px-4 py-3">
-                    {formatMetric(sensor.value)} {sensor.unit}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={sensor.status}>{sensor.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3">{formatRelativeTime(sensor.timestamp)}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`/sensors/${sensor.sensorId}`} className="text-blue-300 hover:text-blue-200">
-                      Detay
-                    </Link>
-                  </td>
+        {error ? (
+          <div className="p-4 text-sm text-red-300">{error}</div>
+        ) : loading && sensors.length === 0 ? (
+          <div className="p-4 text-sm text-tx-secondary">Sensörler yükleniyor...</div>
+        ) : filteredSensors.length === 0 ? (
+          <div className="p-4 text-sm text-tx-secondary">Seçilen filtrelere uygun sensör bulunamadı.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-border bg-surface">
+                <tr className="text-tx-label">
+                  <th className="px-4 py-3 font-medium">Sensor</th>
+                  <th className="px-4 py-3 font-medium">Konum</th>
+                  <th className="px-4 py-3 font-medium">Tip</th>
+                  <th className="px-4 py-3 font-medium">Son Deger</th>
+                  <th className="px-4 py-3 font-medium">Durum</th>
+                  <th className="px-4 py-3 font-medium">Son Guncelleme</th>
+                  <th className="px-4 py-3 font-medium">Detay</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredSensors.map((sensor) => (
+                  <tr key={sensor.sensorId} className="border-b border-border/60 text-tx-secondary">
+                    <td className="px-4 py-3 font-medium text-tx-primary">{sensor.sensorId}</td>
+                    <td className="px-4 py-3">{sensor.location}</td>
+                    <td className="px-4 py-3 capitalize">{sensor.sensorType}</td>
+                    <td className="px-4 py-3">
+                      {formatMetric(sensor.value)} {sensor.unit}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={sensor.status}>{sensor.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3">{formatRelativeTime(sensor.timestamp)}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/sensors/${sensor.sensorId}`} className="text-blue-300 hover:text-blue-200">
+                        Detay
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
 }
-

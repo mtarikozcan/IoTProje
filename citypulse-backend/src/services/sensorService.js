@@ -8,6 +8,33 @@ const READINGS_TABLE = process.env.DYNAMODB_TABLE_READINGS;
 const ANOMALY_WINDOW_MINUTES = Number(process.env.ANOMALY_WINDOW_MINUTES || 5);
 const TTL_SECONDS = 48 * 60 * 60;
 
+function toTimestampMs(value) {
+  return new Date(value).getTime();
+}
+
+function sortReadingsDesc(readings) {
+  return [...readings].sort((left, right) => toTimestampMs(right.timestamp) - toTimestampMs(left.timestamp));
+}
+
+function filterReadingsByPeriod(readings, period) {
+  if (!period) {
+    return readings;
+  }
+
+  const windowMap = {
+    '1h': 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+  };
+  const windowMs = windowMap[period];
+
+  if (!windowMs) {
+    return readings;
+  }
+
+  const threshold = Date.now() - windowMs;
+  return readings.filter((reading) => toTimestampMs(reading.timestamp) >= threshold);
+}
+
 async function writeReadingToDynamo(reading) {
   if (!READINGS_TABLE) {
     warnOnce('missing-readings-table', 'DynamoDB warning: DYNAMODB_TABLE_READINGS is not configured, using local in-memory storage.');
@@ -68,14 +95,12 @@ async function loadLatestReadingsFromDynamo() {
 
     items.forEach((item) => {
       const current = latestBySensor.get(item.sensorId);
-      if (!current || new Date(item.timestamp) > new Date(current.timestamp)) {
+      if (!current || toTimestampMs(item.timestamp) > toTimestampMs(current.timestamp)) {
         latestBySensor.set(item.sensorId, item);
       }
     });
 
-    return Array.from(latestBySensor.values()).sort(
-      (left, right) => new Date(right.timestamp) - new Date(left.timestamp)
-    );
+    return sortReadingsDesc(Array.from(latestBySensor.values()));
   } catch (error) {
     warnOnce('dynamo-latest-readings', 'DynamoDB warning: failed to load latest readings, falling back to local cache.', error);
     return [];
@@ -83,6 +108,9 @@ async function loadLatestReadingsFromDynamo() {
 }
 
 function buildReading(data) {
+  const lat = Number(data.lat);
+  const lng = Number(data.lng);
+
   return {
     sensorId: data.sensorId,
     timestamp: data.timestamp || new Date().toISOString(),
@@ -90,8 +118,8 @@ function buildReading(data) {
     value: Number(data.value),
     unit: data.unit,
     location: data.location,
-    lat: Number(data.lat),
-    lng: Number(data.lng),
+    lat: Number.isFinite(lat) ? lat : undefined,
+    lng: Number.isFinite(lng) ? lng : undefined,
     status: data.status || 'normal',
     average5m: Number(data.average5m || data.value || 0),
     ttl: Math.floor(Date.now() / 1000) + TTL_SECONDS,
@@ -117,16 +145,14 @@ async function getLatestReadings() {
 async function getSensorHistory(sensorId, limit = 100) {
   const localReadings = localStore.getReadings(sensorId);
   if (localReadings.length > 0) {
-    return localReadings
-      .sort((left, right) => new Date(right.timestamp) - new Date(left.timestamp))
-      .slice(0, limit);
+    return sortReadingsDesc(localReadings).slice(0, limit);
   }
 
   return loadReadingsFromDynamo(sensorId, limit);
 }
 
-async function getSensorStats(sensorId) {
-  const history = await getSensorHistory(sensorId, 500);
+async function getSensorStats(sensorId, period) {
+  const history = filterReadingsByPeriod(await getSensorHistory(sensorId, 500), period);
 
   if (history.length === 0) {
     return {
@@ -158,9 +184,13 @@ async function getLast5MinAverage(sensorId) {
 
   const threshold = Date.now() - ANOMALY_WINDOW_MINUTES * 60 * 1000;
   const recentReadings = history.filter(
-    (reading) => new Date(reading.timestamp).getTime() >= threshold
+    (reading) => toTimestampMs(reading.timestamp) >= threshold
   );
-  const source = recentReadings.length > 0 ? recentReadings : history;
+  if (recentReadings.length === 0) {
+    return null;
+  }
+
+  const source = recentReadings;
   const total = source.reduce((sum, reading) => sum + Number(reading.value), 0);
 
   return Number((total / source.length).toFixed(2));
@@ -170,7 +200,7 @@ async function countReadingsInLastHour() {
   const threshold = Date.now() - 60 * 60 * 1000;
   const localCount = localStore
     .getAllReadings()
-    .filter((reading) => new Date(reading.timestamp).getTime() >= threshold).length;
+    .filter((reading) => toTimestampMs(reading.timestamp) >= threshold).length;
 
   if (localCount > 0 || !READINGS_TABLE) {
     return localCount;
@@ -184,7 +214,7 @@ async function countReadingsInLastHour() {
     );
 
     return (response.Items || []).filter(
-      (reading) => new Date(reading.timestamp).getTime() >= threshold
+      (reading) => toTimestampMs(reading.timestamp) >= threshold
     ).length;
   } catch (error) {
     warnOnce('dynamo-summary-readings', 'DynamoDB warning: failed to calculate recent reading count.', error);
@@ -200,4 +230,3 @@ module.exports = {
   getLast5MinAverage,
   countReadingsInLastHour,
 };
-

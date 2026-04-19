@@ -16,11 +16,15 @@ async function putSensorRecord(sensorData) {
       new PutRecordCommand({
         StreamName: streamName,
         PartitionKey: sensorData.sensorId,
-        Data: Buffer.from(JSON.stringify(sensorData)),
+        Data: JSON.stringify(sensorData),
       })
     );
   } catch (error) {
-    console.warn('Kinesis warning: failed to publish sensor record, continuing without stream persistence.', error.message || error);
+    warnOnce(
+      'kinesis-put-record-failed',
+      `Kinesis warning: failed to publish sensor record for ${sensorData.sensorId}, continuing without stream persistence.`,
+      error
+    );
     return null;
   }
 }
@@ -28,4 +32,3 @@ async function putSensorRecord(sensorData) {
 module.exports = {
   putSensorRecord,
 };
-

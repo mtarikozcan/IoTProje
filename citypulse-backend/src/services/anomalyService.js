@@ -18,6 +18,30 @@ const THRESHOLDS = {
   },
 };
 
+const CRITICAL_SEVERITY_LIMITS = {
+  energy: {
+    high: 3.0,
+    low: 0.15,
+  },
+  traffic: {
+    high: 3.5,
+    low: 0.05,
+  },
+};
+
+function resolveSeverity(sensorType, direction, ratio) {
+  const limits = CRITICAL_SEVERITY_LIMITS[sensorType];
+  if (!limits) {
+    return 'warning';
+  }
+
+  if (direction === 'high') {
+    return ratio >= limits.high ? 'critical' : 'warning';
+  }
+
+  return ratio <= limits.low ? 'critical' : 'warning';
+}
+
 function checkAnomaly(sensorData, avg5m) {
   const thresholds = THRESHOLDS[sensorData.sensorType];
   if (!thresholds || !avg5m || avg5m <= 0) {
@@ -31,11 +55,11 @@ function checkAnomaly(sensorData, avg5m) {
   if (value > highThreshold) {
     const deviation = Number((value / avg5m).toFixed(2));
     return {
-      severity: deviation >= thresholds.high + 0.5 ? 'critical' : 'warning',
+      severity: resolveSeverity(sensorData.sensorType, 'high', deviation),
       message:
         sensorData.sensorType === 'energy'
-          ? `${sensorData.location} - Anormal enerji tuketimi tespit edildi`
-          : `${sensorData.location} - Anormal trafik yogunlugu tespit edildi`,
+          ? `${sensorData.location} — Anormal enerji tüketimi tespit edildi`
+          : `${sensorData.location} — Anormal trafik yoğunluğu tespit edildi`,
       deviation,
     };
   }
@@ -43,11 +67,11 @@ function checkAnomaly(sensorData, avg5m) {
   if (value < lowThreshold) {
     const deviation = Number((value / avg5m).toFixed(2));
     return {
-      severity: deviation <= thresholds.low / 2 ? 'critical' : 'warning',
+      severity: resolveSeverity(sensorData.sensorType, 'low', deviation),
       message:
         sensorData.sensorType === 'energy'
-          ? `${sensorData.location} - Anormal dusuk enerji tuketimi tespit edildi`
-          : `${sensorData.location} - Trafik akisi anormal derecede dustu`,
+          ? `${sensorData.location} — Anormal düşük enerji tüketimi tespit edildi`
+          : `${sensorData.location} — Trafik akışı anormal derecede düştü`,
       deviation,
     };
   }
@@ -76,7 +100,6 @@ async function writeAlarmToDynamo(alarm) {
 async function saveAlarm(sensorData, anomaly) {
   const alarm = {
     alarmId: uuidv4(),
-    timestamp: sensorData.timestamp || new Date().toISOString(),
     sensorId: sensorData.sensorId,
     sensorType: sensorData.sensorType,
     value: Number(sensorData.value),
@@ -85,7 +108,7 @@ async function saveAlarm(sensorData, anomaly) {
     severity: anomaly.severity,
     message: anomaly.message,
     resolved: false,
-    location: sensorData.location,
+    timestamp: sensorData.timestamp || new Date().toISOString(),
   };
 
   localStore.addAlarm(alarm);
@@ -93,17 +116,40 @@ async function saveAlarm(sensorData, anomaly) {
   return alarm;
 }
 
-async function getAlarms(resolved) {
+function normalizeResolvedFilter(resolved) {
+  if (typeof resolved === 'boolean') {
+    return resolved;
+  }
+
+  if (resolved === 'true') {
+    return true;
+  }
+
+  if (resolved === 'false') {
+    return false;
+  }
+
+  return undefined;
+}
+
+function filterAlarmList(items, resolved, type) {
+  const normalizedResolved = normalizeResolvedFilter(resolved);
+
+  return items.filter((alarm) => {
+    const matchesResolved =
+      normalizedResolved === undefined ? true : alarm.resolved === normalizedResolved;
+    const matchesType = type ? alarm.sensorType === type : true;
+
+    return matchesResolved && matchesType;
+  });
+}
+
+async function getAlarms(resolved, type) {
   const localAlarms = localStore.getAlarms();
   const hasLocalData = localAlarms.length > 0 || !ALARMS_TABLE;
-  const normalizedResolved =
-    typeof resolved === 'boolean' ? resolved : resolved === 'true' ? true : resolved === 'false' ? false : undefined;
-
-  const filterResolved = (items) =>
-    normalizedResolved === undefined ? items : items.filter((alarm) => alarm.resolved === normalizedResolved);
 
   if (hasLocalData) {
-    return filterResolved(localAlarms);
+    return filterAlarmList(localAlarms, resolved, type);
   }
 
   try {
@@ -113,12 +159,38 @@ async function getAlarms(resolved) {
       })
     );
 
-    return filterResolved(
+    return filterAlarmList(
       (response.Items || []).sort((left, right) => new Date(right.timestamp) - new Date(left.timestamp))
+      ,
+      resolved,
+      type
     );
   } catch (error) {
     warnOnce('dynamo-read-alarms', 'DynamoDB warning: failed to read alarms, falling back to local cache.', error);
-    return filterResolved(localAlarms);
+    return filterAlarmList(localAlarms, resolved, type);
+  }
+}
+
+async function findAlarmInDynamo(alarmId) {
+  if (!ALARMS_TABLE) {
+    return null;
+  }
+
+  try {
+    const response = await dynamoDocumentClient.send(
+      new ScanCommand({
+        TableName: ALARMS_TABLE,
+        FilterExpression: 'alarmId = :alarmId',
+        ExpressionAttributeValues: {
+          ':alarmId': alarmId,
+        },
+      })
+    );
+
+    return (response.Items || [])[0] || null;
+  } catch (error) {
+    warnOnce('dynamo-find-alarm', 'DynamoDB warning: failed to locate alarm for update.', error);
+    return null;
   }
 }
 
@@ -129,7 +201,12 @@ async function resolveAlarm(alarmId) {
   }));
 
   if (!ALARMS_TABLE) {
-    return localAlarm;
+    return localAlarm || null;
+  }
+
+  const alarmToUpdate = localAlarm || (await findAlarmInDynamo(alarmId));
+  if (!alarmToUpdate) {
+    return null;
   }
 
   try {
@@ -138,7 +215,7 @@ async function resolveAlarm(alarmId) {
         TableName: ALARMS_TABLE,
         Key: {
           alarmId,
-          timestamp: localAlarm ? localAlarm.timestamp : undefined,
+          timestamp: alarmToUpdate.timestamp,
         },
         UpdateExpression: 'SET resolved = :resolved',
         ExpressionAttributeValues: {
@@ -150,7 +227,10 @@ async function resolveAlarm(alarmId) {
     warnOnce('dynamo-resolve-alarm', 'DynamoDB warning: failed to update alarm resolution in DynamoDB.', error);
   }
 
-  return localAlarm;
+  return {
+    ...alarmToUpdate,
+    resolved: true,
+  };
 }
 
 module.exports = {
@@ -159,4 +239,3 @@ module.exports = {
   getAlarms,
   resolveAlarm,
 };
-
