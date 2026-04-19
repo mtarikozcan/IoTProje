@@ -72,10 +72,22 @@ export default function DashboardPage() {
           tone={alarms.some((alarm) => !alarm.resolved) ? 'danger' : 'success'}
         />
         <StatCard
-          label="Baglanti"
-          value={connected ? 'Canli' : 'Kesik'}
-          helper="WebSocket durumu"
-          tone={connected ? 'success' : 'danger'}
+          label="Sistem Durumu"
+          value={
+            summary?.systemStatus === 'critical'
+              ? 'Kritik'
+              : summary?.systemStatus === 'warning'
+                ? 'Uyari'
+                : 'Saglikli'
+          }
+          helper={connected ? 'WebSocket canlı' : 'WebSocket bağlantısı bekleniyor'}
+          tone={
+            summary?.systemStatus === 'critical'
+              ? 'danger'
+              : summary?.systemStatus === 'warning'
+                ? 'traffic'
+                : 'success'
+          }
         />
       </section>
 

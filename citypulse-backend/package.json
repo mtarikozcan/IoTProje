@@ -6,8 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "simulate": "node simulator/citySimulator.js",
     "simulator": "node simulator/citySimulator.js",
-    "lambda": "node -e \"require('./lambda/processor').handler({ Records: [] }).then(console.log)\""
+    "lambda": "node -e \"require('./lambda/processor').handler({ Records: [] }).then(console.log)\"",
+    "test:manual": "node -e \"console.log('See the root README for the manual backend, simulator, alarm, and frontend verification flow.')\""
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.825.0",
@@ -20,4 +22,3 @@
     "ws": "^8.18.0"
   }
 }
-

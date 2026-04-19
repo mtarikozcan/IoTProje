@@ -36,6 +36,5 @@ export interface DashboardSummary {
   activeSensors: number
   readingsLastHour: number
   activeAlarms: number
-  systemStatus: 'healthy' | 'warning'
+  systemStatus: 'healthy' | 'warning' | 'critical'
 }
-

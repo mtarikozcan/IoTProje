@@ -9,6 +9,7 @@ const {
 const { getAlarms } = require('../services/anomalyService');
 
 const router = express.Router();
+const VALID_STATS_PERIODS = new Set(['1h', '24h']);
 
 router.get('/sensors', async (_req, res, next) => {
   try {
@@ -36,6 +37,11 @@ router.get('/sensors/:id/history', async (req, res, next) => {
 
 router.get('/sensors/:id/stats', async (req, res, next) => {
   try {
+    if (req.query.period && !VALID_STATS_PERIODS.has(req.query.period)) {
+      res.status(400).json({ message: 'Query parameter "period" must be one of: 1h, 24h' });
+      return;
+    }
+
     const stats = await getSensorStats(req.params.id, req.query.period);
     res.json(stats);
   } catch (error) {
@@ -50,12 +56,18 @@ router.get('/dashboard/summary', async (_req, res, next) => {
       getAlarms(false),
       countReadingsInLastHour(),
     ]);
+    const hasCriticalAlarm = activeAlarmList.some((alarm) => alarm.severity === 'critical');
+    const systemStatus = hasCriticalAlarm
+      ? 'critical'
+      : activeAlarmList.length > 0
+        ? 'warning'
+        : 'healthy';
 
     res.json({
       activeSensors: latestReadings.length,
       readingsLastHour: recentReadingCount,
       activeAlarms: activeAlarmList.length,
-      systemStatus: activeAlarmList.length > 0 ? 'warning' : 'healthy',
+      systemStatus,
     });
   } catch (error) {
     next(error);
