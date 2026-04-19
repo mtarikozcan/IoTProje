@@ -1,0 +1,12 @@
+{
+  "name": "citypulse-lambda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWS Lambda processor package for CityPulse",
+  "main": "processor.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.825.0",
+    "@aws-sdk/client-kinesis": "^3.825.0",
+    "@aws-sdk/lib-dynamodb": "^3.825.0"
+  }
+}
