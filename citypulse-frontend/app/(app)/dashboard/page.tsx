@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const orderedSensors = [...sensors].sort((left, right) => left.sensorId.localeCompare(right.sensorId))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 xl:space-y-6">
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Aktif Sensör"
@@ -86,7 +86,7 @@ export default function DashboardPage() {
         />
       </section>
 
-      <section className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.7fr)_360px]">
+      <section className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,348px)]">
         <LiveChart data={chartData} />
         <AlarmFeed alarms={alarms.filter((alarm) => !alarm.resolved)} />
       </section>
@@ -98,7 +98,7 @@ export default function DashboardPage() {
       ) : orderedSensors.length === 0 ? (
         <div className="panel p-4 text-sm text-tx-secondary">Henüz sensör verisi alınmadı.</div>
       ) : (
-        <section className="grid grid-cols-2 gap-4 pt-1 lg:grid-cols-5">
+        <section className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {orderedSensors.map((sensor) => (
             <SensorCard key={sensor.sensorId} sensor={sensor} />
           ))}
